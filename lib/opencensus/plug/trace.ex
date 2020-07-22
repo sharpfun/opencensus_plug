@@ -96,9 +96,7 @@ defmodule Opencensus.Plug.Trace do
           # "http.route" => ""
         }
 
-        attributes = Opencensus.Plug.get_tags(conn, __MODULE__, unquote(attributes))
-
-        :ocp.with_child_span(span_name(conn, opts), Map.merge(default_attributes, attributes))
+        :ocp.with_child_span(span_name(conn, opts), default_attributes)
         span_ctx = :ocp.current_span_ctx()
 
         :ok = unquote(__MODULE__).set_logger_metadata(span_ctx)
@@ -109,7 +107,12 @@ defmodule Opencensus.Plug.Trace do
         |> Plug.Conn.register_before_send(fn conn ->
           {status, msg} = span_status(conn, opts)
 
-          :oc_trace.put_attribute("http.status_code", Integer.to_string(conn.status), span_ctx)
+          default_attributes = %{
+            "http.status_code" => Integer.to_string(conn.status)
+          }
+
+          attributes = Opencensus.Plug.get_tags(conn, __MODULE__, unquote(attributes))
+          :oc_trace.put_attributes(Map.merge(default_attributes, attributes), span_ctx)
 
           :oc_trace.set_status(status, msg, span_ctx)
           :oc_trace.finish_span(span_ctx)
